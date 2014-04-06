@@ -1,0 +1,11 @@
+processes:
+  host: localhost
+  command: ps -ef
+
+messages:
+  host: localhost
+  command: tail -10 /var/log/system.log
+
+loop:
+  host: localhost
+  command: for x in `seq 3`; do echo $x; sleep 1; done
