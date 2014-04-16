@@ -8,4 +8,4 @@ messages:
 
 loop:
   host: localhost
-  command: for x in `seq 3`; do echo $x; sleep 1; done
+  command: for x in `seq 50`; do echo $x; sleep .1; done

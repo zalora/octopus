@@ -10,18 +10,43 @@ import Data.Maybe (fromJust)
 import Network.Wai.Middleware.RequestLogger
 import Web.Scotty
 
-import Network.Octopus.Command (Command, runCommand)
+import Control.Concurrent.STM (atomically, retry)
+import Control.Concurrent.STM.TVar
+import Control.Concurrent.STM.TChan
+
+import Network.Octopus.Command (Command, runCommand, runCommandS)
 import Network.Octopus.Jobs (jobs)
+import qualified Network.Octopus.ThrottledIO as TIO
+
+import Data.Conduit
+import Data.Aeson
+import Control.Monad
+import qualified Data.ByteString.Lazy as LBS
+import Control.Concurrent (threadDelay)
+import Blaze.ByteString.Builder
 
 run' name = jobs >>= return . fromJust . M.lookup name >>= fmap T.fromStrict . runCommand
+runS' name = jobs >>= return . fromJust . M.lookup name >>= runCommandS
 
 run = do
     name <- param "name"
     output <- liftIO $ run' name
     text output
 
+runSource = do
+    name <- param "name"
+    output <- liftIO $ runS' name
+    source output
+
+sendJson x = do
+  sendLBS $ (encode $ object x) `LBS.append` "\n"
+  yield Flush
+  where
+    sendLBS = yield . Chunk . fromLazyByteString
+
+
 scotty :: ScottyM ()
 scotty = do
     middleware logStdoutDev
     get "/" $ text "hello"
-    post "/run/:name" run
+    post "/run/:name" runSource
