@@ -13,7 +13,12 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM.TBMChan
 
+import System.IO.Unsafe (unsafePerformIO)
+
+import Data.Conduit
+import Data.Conduit.TMChan (sourceTMChan, dupTMChan)
 import Network.Octopus.Command
 
 class (Ord ident) => SerializableIO ident a where
@@ -25,8 +30,25 @@ instance SerializableIO Command T.Text where
 instance SerializableIO Command LT.Text where
     runAction = fmap LT.fromStrict . runCommand
 
+sourcePool :: TVar (M.Map Command ChunkChan)
+sourcePool = unsafePerformIO $ newTVarIO M.empty
+{-# NOINLINE sourcePool #-}
+
+attach :: Command -> STM (Maybe ChunkSource)
+attach command = do
+      m <- readTVar sourcePool
+      case M.lookup command m of
+        Just chan -> dupTMChan chan >>= return . Just . sourceTMChan
+        _ -> return $ Nothing
+
 instance SerializableIO Command ChunkSource where
-    runAction = runCommandS
+    runAction command = do
+      chan <- runCommandChan command
+      readChan <- atomically $ do
+        m <- readTVar sourcePool
+        writeTVar sourcePool $ M.insert command chan m
+        dupTMChan chan
+      return $ sourceTMChan $ readChan
 
 type TActionQueue = TQueue (IO ())
 type CommandQueueMap ident = TVar (M.Map ident TActionQueue)

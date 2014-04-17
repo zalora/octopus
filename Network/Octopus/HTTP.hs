@@ -22,27 +22,19 @@ import Data.Conduit
 import Data.Aeson
 import Control.Monad
 import qualified Data.ByteString.Lazy as LBS
-import Control.Concurrent (threadDelay)
 import Blaze.ByteString.Builder
 
-run' name = jobs >>= return . fromJust . M.lookup name >>= fmap T.fromStrict . runCommand
-runS' name = jobs >>= return . fromJust . M.lookup name >>= runCommandS
 command name = jobs >>= return . fromJust . M.lookup name
 
-run = do
-    name <- param "name"
-    output <- liftIO $ run' name
-    text output
+simpleRunner name = command name >>= fmap T.fromStrict . runCommand
+sourceRunner name = command name >>= runCommandS
 
-runSource = do
+run runner liftOut = do
     name <- param "name"
-    output <- liftIO $ runS' name
-    source output
+    output <- liftIO $ runner name
+    liftOut output
 
-runQ cmdQ = do
-    name <- param "name"
-    output <- liftIO $ command name >>= TIO.dispatchAction TIO.noOwner cmdQ
-    text output
+runQueued cmdQ = run (\name -> command name >>= TIO.dispatchAction TIO.noOwner cmdQ)
 
 scotty :: ScottyM ()
 scotty = do
@@ -51,5 +43,15 @@ scotty = do
     cmdQ <- liftIO $ atomically $ (TIO.queueMap :: STM (TIO.CommandQueueMap Command))
 
     get "/" $ text "hello"
-    post "/run/:name" runSource
-    post "/q/:name" $ runQ cmdQ
+
+    post "/concurrent/:name" $ run sourceRunner source
+
+    post "/enqueue/:name" $ runQueued cmdQ source
+    post "/qplain/:name" $ runQueued cmdQ text
+
+    get "/attach/:name" $ do
+      name <- param "name"
+      chunks <- liftIO $ command name >>= atomically . TIO.attach
+      case chunks of
+        Just c -> source c
+        Nothing -> text "nothing :("

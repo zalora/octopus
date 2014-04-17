@@ -26,12 +26,17 @@ import Data.Conduit
 import Blaze.ByteString.Builder
 import Debug.Trace
 
+import Control.Concurrent (forkIO)
+import Control.Concurrent.STM (atomically, STM)
+import Control.Concurrent.STM.TMChan
+
 data Host = Host T.Text
           deriving (Show, Ord, Eq)
 data Command = Command Host T.Text
              deriving (Show, Ord, Eq)
 
 type ChunkSource = Source IO (Flush Builder)
+type ChunkChan = TMChan (Flush Builder)
 
 mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
 mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
@@ -39,8 +44,8 @@ mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
 createPipeHandle :: IO (Handle, Handle)
 createPipeHandle = join $ fmap (mapMBoth fdToHandle) createPipe
 
-runCreateProcess :: CreateProcess -> IO T.Text
-runCreateProcess cp = do
+outputCreateProcess :: CreateProcess -> IO T.Text
+outputCreateProcess cp = do
     (Just stdin, Just stdout, Just stderr, p) <- createProcess cp
     out <- TIO.hGetContents stdout
     hClose stdin
@@ -62,15 +67,17 @@ sourceHandle h = do
               yield Flush
               loop
 
-sourceProc :: CreateProcess -> IO ChunkSource
-sourceProc proc = do
+runCreateProcess :: CreateProcess -> IO Handle
+runCreateProcess proc = do
     (rh, wh) <- createPipeHandle
     hSetBuffering rh LineBuffering
     hSetBuffering wh LineBuffering
     (Just stdin, _, _, p) <- createProcess proc{std_out = UseHandle wh, std_err = UseHandle wh}
     hClose stdin
-    return $ sourceHandle rh
+    return rh
 
+sourceProc :: CreateProcess -> IO ChunkSource
+sourceProc = fmap sourceHandle . runCreateProcess
 
 cmd :: FilePath -> [T.Text] -> CreateProcess
 cmd proc args = CreateProcess { cmdspec = RawCommand proc $ T.unpack <$> args
@@ -83,8 +90,27 @@ cmd proc args = CreateProcess { cmdspec = RawCommand proc $ T.unpack <$> args
                               , create_group = True
                               }
 
+sshCommand :: Command -> CreateProcess
+sshCommand (Command (Host hostname) args) = cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
+
 runCommand :: Command -> IO T.Text
-runCommand (Command (Host hostname) args) = runCreateProcess $ cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
+runCommand = outputCreateProcess . sshCommand
 
 runCommandS :: Command -> IO ChunkSource
-runCommandS (Command (Host hostname) args) = sourceProc $ cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
+runCommandS = sourceProc . sshCommand
+
+runCommandChan :: Command -> IO ChunkChan
+runCommandChan comm = 
+    let consume chan handle = do
+                              x <- BS.hGetSome handle 64
+                              if BS.null x
+                                  then atomically $ closeTMChan chan
+                                  else do
+                                    atomically $ do
+                                      writeTMChan chan $ Chunk $ fromByteString x
+                                      writeTMChan chan Flush
+                                    consume chan handle
+    in do
+    chan <- newBroadcastTMChanIO
+    forkIO $ runCreateProcess (sshCommand comm) >>= consume chan
+    return chan
