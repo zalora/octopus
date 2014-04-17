@@ -15,7 +15,8 @@ import Data.Maybe (fromJust)
 
 import Network.Octopus.Command (Command(..), Host(..))
 
-type JobsSpec = M.Map T.Text Command
+type JobName = T.Text
+type JobsSpec = M.Map JobName Command
 
 instance FromJSON Host where
     parseJSON v@(String _) = Host <$> parseJSON v
