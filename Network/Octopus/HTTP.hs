@@ -10,7 +10,7 @@ import Data.Maybe (fromJust)
 import Network.Wai.Middleware.RequestLogger
 import Web.Scotty
 
-import Control.Concurrent.STM (atomically, retry)
+import Control.Concurrent.STM (atomically, retry, STM)
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
@@ -41,19 +41,14 @@ runSource = do
 
 runQ cmdQ = do
     name <- param "name"
-    output <- liftIO $ do
-      comm <- command name
-      chanAction <- atomically $
-        TIO.enqueue cmdQ TIO.noOwner comm
-      chan <- chanAction
-      atomically $ readTChan chan
-    text $ T.fromStrict output
+    output <- liftIO $ command name >>= TIO.dispatchAction TIO.noOwner cmdQ
+    text output
 
 scotty :: ScottyM ()
 scotty = do
     middleware logStdoutDev
 
-    cmdQ <- liftIO $ atomically $ TIO.queueMap
+    cmdQ <- liftIO $ atomically $ (TIO.queueMap :: STM (TIO.CommandQueueMap Command))
 
     get "/" $ text "hello"
     post "/run/:name" runSource

@@ -31,6 +31,8 @@ data Host = Host T.Text
 data Command = Command Host T.Text
              deriving (Show, Ord, Eq)
 
+type ChunkSource = Source IO (Flush Builder)
+
 mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
 mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
 
@@ -47,7 +49,7 @@ runCreateProcess cp = do
     hClose stderr
     return out
 
-sourceHandle :: Handle -> Source IO (Flush Builder)
+sourceHandle :: Handle -> ChunkSource
 sourceHandle h = do
     loop
   where
@@ -60,7 +62,7 @@ sourceHandle h = do
               yield Flush
               loop
 
-sourceProc :: CreateProcess -> IO (Source IO (Flush Builder))
+sourceProc :: CreateProcess -> IO ChunkSource
 sourceProc proc = do
     (rh, wh) <- createPipeHandle
     hSetBuffering rh LineBuffering
@@ -84,5 +86,5 @@ cmd proc args = CreateProcess { cmdspec = RawCommand proc $ T.unpack <$> args
 runCommand :: Command -> IO T.Text
 runCommand (Command (Host hostname) args) = runCreateProcess $ cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
 
-runCommandS :: Command -> IO (Source IO (Flush Builder))
+runCommandS :: Command -> IO ChunkSource
 runCommandS (Command (Host hostname) args) = sourceProc $ cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
