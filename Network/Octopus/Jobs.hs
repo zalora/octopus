@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Octopus.Jobs where
 
-import GHC.Generics
+import GHC.Generics (Generic)
 
 import Control.Applicative
 import Control.Monad (mzero)
@@ -26,6 +26,9 @@ instance FromJSON Command where
     parseJSON (Object v) = Command <$>
                            v .: "host" <*>
                            v .: "command"
+
+instance ToJSON Host
+instance ToJSON Command
 
 jobsFile :: IO FilePath
 jobsFile = return "octopus.yaml"

@@ -1,8 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
 module Network.Octopus.Command where
 
 import Prelude hiding (sequence, mapM)
+
+import GHC.Generics (Generic)
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -32,9 +34,10 @@ import Control.Concurrent.STM.TMChan
 import Data.Conduit.TMChan (sourceTMChan, dupTMChan)
 
 data Host = Host T.Text
-          deriving (Show, Ord, Eq)
-data Command = Command Host T.Text
-             deriving (Show, Ord, Eq)
+          deriving (Show, Ord, Eq, Generic)
+data Command = Command { commandHost :: Host
+                       , commandText :: T.Text
+                       } deriving (Show, Ord, Eq, Generic)
 
 type ChunkSource = Source IO (Flush Builder)
 type ChunkChan = TMChan (Flush Builder)

@@ -1,12 +1,15 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables, MonoLocalBinds #-}
 module Network.Octopus.ThrottledIO where
 
+import Prelude hiding (sequence)
+
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
 import Control.Monad.IO.Class
 import Control.Applicative
+import Data.Traversable (sequence)
 
 import Control.Concurrent (ThreadId, forkIO, threadDelay)
 import Control.Concurrent.STM
@@ -44,12 +47,10 @@ sourcePool :: TVar (M.Map Command ChunkChan)
 sourcePool = unsafePerformIO $ newTVarIO M.empty
 {-# NOINLINE sourcePool #-}
 
-attach :: Command -> STM (Maybe ChunkSource)
+attach :: Command -> STM (Maybe ChunkChan)
 attach command = do
       m <- readTVar sourcePool
-      case M.lookup command m of
-        Just chan -> dupTMChan chan >>= return . Just . sourceTMChan
-        _ -> return $ Nothing
+      sequence $ fmap dupTMChan $ M.lookup command m
 
 instance SerializableIO Command (Flush Builder) where
     runAction command chan = do
