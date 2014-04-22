@@ -29,6 +29,7 @@ import Debug.Trace
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM (atomically, STM)
 import Control.Concurrent.STM.TMChan
+import Data.Conduit.TMChan (sourceTMChan, dupTMChan)
 
 data Host = Host T.Text
           deriving (Show, Ord, Eq)
@@ -54,6 +55,15 @@ outputCreateProcess cp = do
     hClose stderr
     return out
 
+runCreateProcess :: CreateProcess -> IO Handle
+runCreateProcess proc = do
+    (rh, wh) <- createPipeHandle
+    hSetBuffering rh LineBuffering
+    hSetBuffering wh LineBuffering
+    (Just stdin, _, _, p) <- createProcess proc{std_out = UseHandle wh, std_err = UseHandle wh}
+    hClose stdin
+    return rh
+
 sourceHandle :: Handle -> ChunkSource
 sourceHandle h = do
     loop
@@ -66,15 +76,6 @@ sourceHandle h = do
               yield $ Chunk $ fromByteString x
               yield Flush
               loop
-
-runCreateProcess :: CreateProcess -> IO Handle
-runCreateProcess proc = do
-    (rh, wh) <- createPipeHandle
-    hSetBuffering rh LineBuffering
-    hSetBuffering wh LineBuffering
-    (Just stdin, _, _, p) <- createProcess proc{std_out = UseHandle wh, std_err = UseHandle wh}
-    hClose stdin
-    return rh
 
 sourceProc :: CreateProcess -> IO ChunkSource
 sourceProc = fmap sourceHandle . runCreateProcess
@@ -99,8 +100,8 @@ runCommand = outputCreateProcess . sshCommand
 runCommandS :: Command -> IO ChunkSource
 runCommandS = sourceProc . sshCommand
 
-runCommandChan :: Command -> IO ChunkChan
-runCommandChan comm = 
+runCommandChan :: ChunkChan -> Command -> IO ()
+runCommandChan chan comm = 
     let consume chan handle = do
                               x <- BS.hGetSome handle 64
                               if BS.null x
@@ -110,7 +111,4 @@ runCommandChan comm =
                                       writeTMChan chan $ Chunk $ fromByteString x
                                       writeTMChan chan Flush
                                     consume chan handle
-    in do
-    chan <- newBroadcastTMChanIO
-    forkIO $ runCreateProcess (sshCommand comm) >>= consume chan
-    return chan
+    in runCreateProcess (sshCommand comm) >>= consume chan

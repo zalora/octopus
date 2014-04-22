@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables, MonoLocalBinds #-}
 module Network.Octopus.ThrottledIO where
 
 import qualified Data.Map as M
@@ -18,17 +18,27 @@ import Control.Concurrent.STM.TBMChan
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Conduit
-import Data.Conduit.TMChan (sourceTMChan, dupTMChan)
+import Data.Conduit.TMChan (sourceTMChan, dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
 import Network.Octopus.Command
+import Blaze.ByteString.Builder
+
+import Data.Time.Clock.POSIX (getPOSIXTime)
+
+chanIO :: IO a -> TMChan a -> IO ()
+chanIO action chan = do
+    result <- action
+    atomically $ do
+      writeTMChan chan result
+      closeTMChan chan
 
 class (Ord ident) => SerializableIO ident a where
-    runAction :: ident -> IO a
-    
+    runAction :: ident -> TMChan a -> IO ()
+
 instance SerializableIO Command T.Text where
-    runAction = runCommand
+    runAction = chanIO . runCommand
 
 instance SerializableIO Command LT.Text where
-    runAction = fmap LT.fromStrict . runCommand
+    runAction = chanIO . fmap LT.fromStrict . runCommand
 
 sourcePool :: TVar (M.Map Command ChunkChan)
 sourcePool = unsafePerformIO $ newTVarIO M.empty
@@ -41,14 +51,12 @@ attach command = do
         Just chan -> dupTMChan chan >>= return . Just . sourceTMChan
         _ -> return $ Nothing
 
-instance SerializableIO Command ChunkSource where
-    runAction command = do
-      chan <- runCommandChan command
-      readChan <- atomically $ do
+instance SerializableIO Command (Flush Builder) where
+    runAction command chan = do
+      atomically $ do
         m <- readTVar sourcePool
         writeTVar sourcePool $ M.insert command chan m
-        dupTMChan chan
-      return $ sourceTMChan $ readChan
+      runCommandChan chan command
 
 type TActionQueue = TQueue (IO ())
 type CommandQueueMap ident = TVar (M.Map ident TActionQueue)
@@ -57,52 +65,51 @@ data Owner = Owner { lastRun :: Int }
 queueMap :: (Ord a) => STM (CommandQueueMap a)
 queueMap = newTVar M.empty
 
-queue :: STM TActionQueue
-queue = newTQueue
-
 -- | Client interface
-dispatchAction :: (SerializableIO ident result) => Owner -> CommandQueueMap ident -> ident -> IO result
+dispatchAction :: forall ident result. (SerializableIO ident result) => Owner -> CommandQueueMap ident -> ident -> IO (TMChan result)
 dispatchAction owner cmdQ ident = do
-    chanAction <- atomically $ enqueue cmdQ owner ident
-    chan <- chanAction
-    atomically $ readTChan chan
+    qAction <- atomically $ actionQueue cmdQ ident
+    queue <- qAction
+    chan <- newTMChanIO :: IO (TMChan result)
+    atomically $ do
+      writeTQueue queue $ runAction ident chan
+      writeTQueue queue teardown
+    return chan
 
-chanIO :: TChan a -> IO a -> IO ()
-chanIO chan action = do
-    result <- action
-    atomically $ writeTChan chan result
-    return ()
+awaitResult :: TMChan a -> IO (Maybe a)
+awaitResult chan = atomically $ do
+  val <- readTMChan chan
+  case val of
+    Just v -> do
+      closeTMChan chan
+      return $ Just v
+    Nothing -> return Nothing
 
-teardownIO :: IO ()
-teardownIO = threadDelay 5000000
+teardown :: IO ()
+teardown = threadDelay 5000000
 
-enqueue :: (SerializableIO ident result) => CommandQueueMap ident -> Owner -> ident -> STM (IO (TChan result))
-enqueue cmdQ owner ident = 
-    let writeCommand q = do
-              chan <- newTChan
-              writeTQueue q $ chanIO chan $ runAction ident
-              writeTQueue q teardownIO
-              return chan
+-- | Returns a worker queue in an action that starts a queue if necessary,
+--   adds in to a CommandQueueMap
+actionQueue :: Ord ident => CommandQueueMap ident -> ident -> STM (IO TActionQueue)
+actionQueue cmdQ ident = do
+    qmap <- readTVar cmdQ
+    case M.lookup ident qmap of
+      Nothing -> do
+        q <- newTQueue
+        writeTVar cmdQ (M.insert ident q qmap)
+        return $ worker q >> return q
+      Just q -> return $ return q
 
-        go (Left queue) = writeCommand queue >>= \chan -> return $ worker owner queue >> return chan
-        go (Right queue) = writeCommand queue >>= return.return
-    in do
-        qmap <- readTVar cmdQ
-        q <- case M.lookup ident qmap of
-                    Nothing -> queue >>= return . Left
-                    Just queue -> return $ Right queue
-        case q of
-          Left q' -> writeTVar cmdQ (M.insert ident q' qmap) >> go q
-          _ -> go q
-
-worker :: Owner -> TActionQueue -> IO ()
-worker owner queue = forkIO loop >> return ()
+worker :: TActionQueue -> IO ()
+worker queue = forkIO loop >> return ()
   where
     loop = do
       action <- atomically $ readTQueue queue
-      putStrLn "running action"
+      t <- getPOSIXTime
+      putStrLn $ "running action " ++ (show (round t))
       action
-      putStrLn "done"
+      t' <- getPOSIXTime
+      putStrLn $ "done " ++ (show (round t'))
       loop
 
 noOwner = undefined -- TODO

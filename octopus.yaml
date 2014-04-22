@@ -12,4 +12,4 @@ loop:
 
 waitnrun:
   host: localhost
-  command: echo sleeping; sleep 5; uname
+  command: echo $$ sleeping; sleep 5; uname; sleep 1; echo $$ done

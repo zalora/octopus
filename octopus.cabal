@@ -30,6 +30,7 @@ executable octopus
                      , stm
                      , async
                      , process
+                     , time
                      , http-types
                      , HTTP >= 4000.2
                      , aeson
@@ -73,6 +74,7 @@ test-suite spec
                      , stm
                      , async
                      , process
+                     , time
                      , http-types
                      , HTTP >= 4000.2
                      , aeson

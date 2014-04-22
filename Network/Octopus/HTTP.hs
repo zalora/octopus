@@ -9,32 +9,42 @@ import Data.Maybe (fromJust)
 
 import Network.Wai.Middleware.RequestLogger
 import Web.Scotty
+import Web.Scotty.Trans (ActionT)
 
 import Control.Concurrent.STM (atomically, retry, STM)
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
-import Network.Octopus.Command (Command, runCommand, runCommandS)
-import Network.Octopus.Jobs (jobs)
+import Network.Octopus.Command (Command, runCommand, runCommandS, ChunkSource)
+import Network.Octopus.Jobs (jobs, JobName)
 import qualified Network.Octopus.ThrottledIO as TIO
 
 import Data.Conduit
+import Data.Conduit.TMChan (sourceTMChan)
 import Data.Aeson
 import Control.Monad
 import qualified Data.ByteString.Lazy as LBS
 import Blaze.ByteString.Builder
 
+command :: JobName -> IO Command
 command name = jobs >>= return . fromJust . M.lookup name
 
+simpleRunner :: JobName -> IO T.Text
 simpleRunner name = command name >>= fmap T.fromStrict . runCommand
+
+sourceRunner :: JobName -> IO ChunkSource
 sourceRunner name = command name >>= runCommandS
 
+run :: Parsable t => (t -> IO a) -> (a -> ActionM ()) -> ActionM ()
 run runner liftOut = do
     name <- param "name"
     output <- liftIO $ runner name
     liftOut output
 
-runQueued cmdQ = run (\name -> command name >>= TIO.dispatchAction TIO.noOwner cmdQ)
+chanSource = (source =<<) . liftIO . return . sourceTMChan
+chanText = (text =<<) . liftIO . fmap fromJust . TIO.awaitResult
+
+dispatch cmdQ = run $ \name -> command name >>= TIO.dispatchAction TIO.noOwner cmdQ
 
 scotty :: ScottyM ()
 scotty = do
@@ -46,8 +56,8 @@ scotty = do
 
     post "/concurrent/:name" $ run sourceRunner source
 
-    post "/enqueue/:name" $ runQueued cmdQ source
-    post "/qplain/:name" $ runQueued cmdQ text
+    post "/enqueue/:name" $ dispatch cmdQ chanSource
+    post "/qplain/:name" $ dispatch cmdQ chanText
 
     get "/attach/:name" $ do
       name <- param "name"
