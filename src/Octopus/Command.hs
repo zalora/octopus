@@ -34,19 +34,19 @@ instance FromJSON Host where
     parseJSON v@(String _) = Host <$> parseJSON v
     parseJSON _ = mzero
 
+instance ToJSON Host
+
 data Command = Command { commandHost :: Host
                        , commandText :: T.Text
                        } deriving (Show, Ord, Eq, Generic)
 
 instance FromJSON Command where
     parseJSON (Object v) = Command <$>
-                           v .: "host" <*>
+                           v .:? "host" .!= Host "localhost" <*>
                            v .: "command"
     parseJSON _ = mzero
 
-instance ToJSON Host
 instance ToJSON Command
-
 
 type ChunkSource = Source IO (Flush Builder)
 type ChunkChan = TMChan (Flush Builder)
@@ -103,17 +103,18 @@ cmd proc args = CreateProcess { cmdspec = RawCommand proc $ T.unpack <$> args
                               , create_group = True
                               }
 
-sshCommand :: Command -> CreateProcess
-sshCommand (Command (Host hostname) args) = cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
+commandProcess :: Command -> CreateProcess
+commandProcess (Command (Host "localhost") args) = cmd "sh" ["-c", args]
+commandProcess (Command (Host hostname) args) = cmd "ssh" ["-o", "StrictHostKeyChecking no", hostname, " ", args]
 
 runCommand :: Command -> IO T.Text
-runCommand = outputCreateProcess . sshCommand
+runCommand = outputCreateProcess . commandProcess
 
 runCommandS :: Command -> IO ChunkSource
-runCommandS = sourceProc . sshCommand
+runCommandS = sourceProc . commandProcess
 
 runCommandChan :: ChunkChan -> Command -> IO ()
-runCommandChan chan comm = 
+runCommandChan chan = 
     let consume handle = do
                           x <- BS.hGetSome handle 64
                           if BS.null x
@@ -123,4 +124,4 @@ runCommandChan chan comm =
                                   writeTMChan chan $ Chunk $ fromByteString x
                                   writeTMChan chan Flush
                                 consume handle
-    in runCreateProcess (sshCommand comm) >>= consume
+    in (consume =<<) . runCreateProcess . commandProcess
