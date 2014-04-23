@@ -2,12 +2,11 @@
 module Octopus.SerializableIO where
 
 import Prelude hiding (sequence)
+import Data.Traversable (sequence)
 
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
-
-import Data.Traversable (sequence)
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (STM, atomically)
