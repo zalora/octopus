@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts #-}
-module Network.Octopus.HTTP where
+module Octopus.HTTP where
 
 import Control.Monad.IO.Class (liftIO)
 
@@ -12,9 +12,9 @@ import Web.Scotty
 
 import Control.Concurrent.STM (atomically, STM)
 
-import Network.Octopus.Command (Command, runCommand, runCommandS, ChunkSource, ChunkChan)
-import Network.Octopus.Jobs (jobs, JobName)
-import qualified Network.Octopus.SerializableIO as SIO
+import Octopus.Command (Command, runCommand, runCommandS, ChunkSource, ChunkChan)
+import Octopus.Jobs (jobs, JobName)
+import qualified Octopus.SerializableIO as SIO
 
 import Data.Conduit.TMChan (sourceTMChan, TMChan)
 

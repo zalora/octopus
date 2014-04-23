@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.OctopusSpec (main, spec) where
+module OctopusSpec (main, spec) where
 
 import Test.Hspec
 import Test.QuickCheck.Instances ()
 
 import Data.Text ()
 
-import Network.Octopus.Command
-import Network.Octopus.Jobs
--- import Network.Octopus.SerializableIO
-import Network.Octopus.HTTP
+import Octopus.Command
+import Octopus.Jobs
+-- import Octopus.SerializableIO
+import Octopus.HTTP
 
 main :: IO ()
 main = hspec spec

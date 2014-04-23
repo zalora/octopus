@@ -1,5 +1,5 @@
 VIM= vim
-FILE= Network/Octopus.hs
+FILE= src/Octopus.hs
 
 
 shell:

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
-module Network.Octopus.Command where
+module Octopus.Command where
 
 import Prelude hiding (sequence, mapM)
 

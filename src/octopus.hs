@@ -1,7 +1,5 @@
-module Main where
+module Octopus where
 
-import qualified Web.Scotty as S
-import Network.Octopus.HTTP
-
-main :: IO ()
-main = S.scotty 8000 scotty
+import Octopus.HTTP
+import Octopus.Jobs
+import Octopus.Command

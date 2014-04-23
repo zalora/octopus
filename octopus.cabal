@@ -10,7 +10,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable octopus
-  main-is:             octopus.hs
+  main-is:             main.hs
   hs-source-dirs:      src
 
   build-depends:       base >=4.6 && <4.7

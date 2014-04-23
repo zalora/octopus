@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables  #-}
-module Network.Octopus.SerializableIO where
+module Octopus.SerializableIO where
 
 import Prelude hiding (sequence)
 
@@ -18,7 +18,7 @@ import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Conduit
 import Data.Conduit.TMChan (dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
-import Network.Octopus.Command
+import Octopus.Command
 import Blaze.ByteString.Builder
 
 import Data.Time.Clock.POSIX (getPOSIXTime)
