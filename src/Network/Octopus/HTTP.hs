@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts #-}
 module Network.Octopus.HTTP where
 
 import Control.Monad.IO.Class (liftIO)
@@ -9,22 +9,14 @@ import Data.Maybe (fromJust)
 
 import Network.Wai.Middleware.RequestLogger
 import Web.Scotty
-import Web.Scotty.Trans (ActionT)
 
-import Control.Concurrent.STM (atomically, retry, STM)
-import Control.Concurrent.STM.TVar
-import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM (atomically, STM)
 
-import Network.Octopus.Command (Command, runCommand, runCommandS, ChunkSource)
+import Network.Octopus.Command (Command, runCommand, runCommandS, ChunkSource, ChunkChan)
 import Network.Octopus.Jobs (jobs, JobName)
-import qualified Network.Octopus.ThrottledIO as TIO
+import qualified Network.Octopus.SerializableIO as SIO
 
-import Data.Conduit
-import Data.Conduit.TMChan (sourceTMChan)
-import Data.Aeson hiding (json)
-import Control.Monad
-import qualified Data.ByteString.Lazy as LBS
-import Blaze.ByteString.Builder
+import Data.Conduit.TMChan (sourceTMChan, TMChan)
 
 command :: JobName -> IO Command
 command name = jobs >>= return . fromJust . M.lookup name
@@ -38,19 +30,24 @@ sourceRunner name = command name >>= runCommandS
 run :: Parsable t => (t -> IO a) -> (a -> ActionM ()) -> ActionM ()
 run runner liftOut = do
     name <- param "name"
+    _user <- header "from"
     output <- liftIO $ runner name
     liftOut output
 
+chanSource :: ChunkChan -> ActionM ()
 chanSource = (source =<<) . liftIO . return . sourceTMChan
-chanText = (text =<<) . liftIO . fmap fromJust . TIO.awaitResult
 
-dispatch cmdQ = run $ \name -> command name >>= TIO.dispatchAction TIO.noOwner cmdQ
+chanText :: TMChan T.Text -> ActionM ()
+chanText = (text =<<) . liftIO . fmap fromJust . SIO.awaitResult
+
+dispatch :: forall result. (SIO.SerializableIO Command result) => SIO.CommandQueueMap Command -> (TMChan result -> ActionM ()) -> ActionM ()
+dispatch cmdQ = run $ \name -> command name >>= SIO.dispatchAction SIO.noOwner cmdQ
 
 scotty :: ScottyM ()
 scotty = do
     middleware logStdoutDev
 
-    cmdQ <- liftIO $ atomically $ (TIO.queueMap :: STM (TIO.CommandQueueMap Command))
+    cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.CommandQueueMap Command))
 
     get "/" $ json =<< liftIO jobs
 
@@ -58,4 +55,4 @@ scotty = do
 
     post "/enqueue/:name" $ dispatch cmdQ chanSource
     post "/qplain/:name" $ dispatch cmdQ chanText
-    get "/attach/:name" $ run ((fmap fromJust . atomically . TIO.attach =<<) . command) chanSource
+    get "/attach/:name" $ run ((fmap fromJust . atomically . SIO.attach =<<) . command) chanSource

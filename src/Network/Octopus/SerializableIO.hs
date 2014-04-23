@@ -1,5 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables, MonoLocalBinds #-}
-module Network.Octopus.ThrottledIO where
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables  #-}
+module Network.Octopus.SerializableIO where
 
 import Prelude hiding (sequence)
 
@@ -7,21 +7,17 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
-import Control.Monad.IO.Class
-import Control.Applicative
 import Data.Traversable (sequence)
 
-import Control.Concurrent (ThreadId, forkIO, threadDelay)
-import Control.Concurrent.STM
-import Control.Concurrent.STM.TQueue
-import Control.Concurrent.STM.TVar
-import Control.Concurrent.STM.TChan
-import Control.Concurrent.STM.TBMChan
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM (STM, atomically)
+import Control.Concurrent.STM.TQueue (TQueue, writeTQueue, newTQueue, readTQueue)
+import Control.Concurrent.STM.TVar (TVar, newTVarIO, newTVar, readTVar, writeTVar)
 
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Conduit
-import Data.Conduit.TMChan (sourceTMChan, dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
+import Data.Conduit.TMChan (dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
 import Network.Octopus.Command
 import Blaze.ByteString.Builder
 
@@ -68,7 +64,7 @@ queueMap = newTVar M.empty
 
 -- | Client interface
 dispatchAction :: forall ident result. (SerializableIO ident result) => Owner -> CommandQueueMap ident -> ident -> IO (TMChan result)
-dispatchAction owner cmdQ ident = do
+dispatchAction _owner cmdQ ident = do
     qAction <- atomically $ actionQueue cmdQ ident
     queue <- qAction
     chan <- newTMChanIO :: IO (TMChan result)
@@ -113,4 +109,5 @@ worker queue = forkIO loop >> return ()
       putStrLn $ "done " ++ (show (round t'))
       loop
 
+noOwner :: Owner
 noOwner = undefined -- TODO

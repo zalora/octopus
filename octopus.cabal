@@ -11,12 +11,8 @@ cabal-version:       >=1.10
 
 executable octopus
   main-is:             octopus.hs
-  other-modules:       Network.Octopus
-                     , Network.Octopus.HTTP
-                     , Network.Octopus.Jobs
-                     , Network.Octopus.Command
-                     , Network.Octopus.ThrottledIO
-  -- other-extensions:    
+  hs-source-dirs:      src
+
   build-depends:       base >=4.6 && <4.7
                      , unix
                      , bytestring
@@ -44,8 +40,6 @@ executable octopus
                      , stm-chans
                      , stm-conduit
 
-
-  -- hs-source-dirs:      
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
                      , GeneralizedNewtypeDeriving
@@ -53,14 +47,19 @@ executable octopus
 
   ghc-options:         -O2
                        -rtsopts -threaded
+                       -Wall -Werror -fno-warn-type-defaults
   ghc-prof-options:    -prof -auto-all
 
 test-suite spec
   type:                exitcode-stdio-1.0
-  ghc-options:         -Wall -Werror
-  default-language:    Haskell2010
+
   hs-source-dirs:      test
+                     , src
   main-is:             Spec.hs
+
+  ghc-options:         -Wall -Werror -fno-warn-type-defaults -fno-warn-unused-imports
+  default-language:    Haskell2010
+
   build-depends:       base >=4.6 && <4.7
                      , unix
                      , bytestring

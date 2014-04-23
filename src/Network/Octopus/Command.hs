@@ -6,38 +6,47 @@ import Prelude hiding (sequence, mapM)
 
 import GHC.Generics (Generic)
 
-import qualified Data.List as L
-import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
 
-import Data.Maybe
 import Control.Applicative
-import Control.Monad (ap, join)
+import Control.Monad (ap, join, mzero)
 import Control.Monad.Trans
 
 import System.Process (createProcess, waitForProcess, CreateProcess(..), CmdSpec(..), StdStream(..))
-import GHC.IO.Handle (hClose, hDuplicateTo, Handle(..))
+import GHC.IO.Handle (hClose, Handle)
 import System.IO (hSetBuffering, BufferMode(..))
 import System.Posix.IO (createPipe, fdToHandle)
 
+import Data.Yaml
 import Data.Conduit
 -- import Data.Conduit.Combinators
 import Blaze.ByteString.Builder
-import Debug.Trace
 
-import Control.Concurrent (forkIO)
-import Control.Concurrent.STM (atomically, STM)
-import Control.Concurrent.STM.TMChan
-import Data.Conduit.TMChan (sourceTMChan, dupTMChan)
+import Control.Concurrent.STM (atomically)
+import Control.Concurrent.STM.TMChan (TMChan, closeTMChan, writeTMChan)
 
 data Host = Host T.Text
           deriving (Show, Ord, Eq, Generic)
+
+instance FromJSON Host where
+    parseJSON v@(String _) = Host <$> parseJSON v
+    parseJSON _ = mzero
+
 data Command = Command { commandHost :: Host
                        , commandText :: T.Text
                        } deriving (Show, Ord, Eq, Generic)
+
+instance FromJSON Command where
+    parseJSON (Object v) = Command <$>
+                           v .: "host" <*>
+                           v .: "command"
+    parseJSON _ = mzero
+
+instance ToJSON Host
+instance ToJSON Command
+
 
 type ChunkSource = Source IO (Flush Builder)
 type ChunkChan = TMChan (Flush Builder)
@@ -63,7 +72,7 @@ runCreateProcess proc = do
     (rh, wh) <- createPipeHandle
     hSetBuffering rh LineBuffering
     hSetBuffering wh LineBuffering
-    (Just stdin, _, _, p) <- createProcess proc{std_out = UseHandle wh, std_err = UseHandle wh}
+    (Just stdin, _, _, _) <- createProcess proc{std_out = UseHandle wh, std_err = UseHandle wh}
     hClose stdin
     return rh
 
@@ -105,13 +114,13 @@ runCommandS = sourceProc . sshCommand
 
 runCommandChan :: ChunkChan -> Command -> IO ()
 runCommandChan chan comm = 
-    let consume chan handle = do
-                              x <- BS.hGetSome handle 64
-                              if BS.null x
-                                  then atomically $ closeTMChan chan
-                                  else do
-                                    atomically $ do
-                                      writeTMChan chan $ Chunk $ fromByteString x
-                                      writeTMChan chan Flush
-                                    consume chan handle
-    in runCreateProcess (sshCommand comm) >>= consume chan
+    let consume handle = do
+                          x <- BS.hGetSome handle 64
+                          if BS.null x
+                              then atomically $ closeTMChan chan
+                              else do
+                                atomically $ do
+                                  writeTMChan chan $ Chunk $ fromByteString x
+                                  writeTMChan chan Flush
+                                consume handle
+    in runCreateProcess (sshCommand comm) >>= consume
