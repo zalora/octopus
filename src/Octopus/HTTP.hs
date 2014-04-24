@@ -1,8 +1,9 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, DeriveGeneric #-}
 module Octopus.HTTP where
 
 import Control.Monad.IO.Class (liftIO)
 
+import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
@@ -12,12 +13,13 @@ import Network.Wai.Middleware.RequestLogger
 import Web.Scotty
 import Network.HTTP.Types.Status (unauthorized401)
 
-import Control.Concurrent.STM (atomically, STM)
+import Control.Concurrent.STM (atomically, STM, readTVar)
 
 import Octopus.Command (Command, runCommandS, ChunkSource, ChunkChan)
 import Octopus.Jobs (jobs, JobName)
 import qualified Octopus.SerializableIO as SIO
 import Octopus.Owner (canEnqueue, bumpOwner, OwnerMap, emptyOwnerMap, lookupCreateOwner)
+import Octopus.TQueue (dumpTQueue)
 
 import Data.Conduit.TMChan (sourceTMChan, TMChan)
 
@@ -59,14 +61,14 @@ chanSource = (source =<<) . liftIO . return . sourceTMChan
 chanText :: TMChan T.Text -> ActionM ()
 chanText = (text =<<) . liftIO . fmap fromJust . SIO.awaitResult
 
-dispatch :: forall result. (SIO.SerializableIO Command result) => SIO.CommandQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
+dispatch :: forall result. (SIO.SerializableIO Command result) => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
 dispatch cmdQ = runAccounted $ \name -> command name >>= SIO.dispatchAction cmdQ
 
 scotty :: ScottyM ()
 scotty = do
     middleware logStdoutDev
 
-    cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.CommandQueueMap Command))
+    cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
     ownerMap <- liftIO $ atomically $ emptyOwnerMap
 
     get "/" $ json =<< liftIO jobs
@@ -74,6 +76,8 @@ scotty = do
     -- this call should be available only for admin users
     post "/concurrent/:name" $ run sourceRunner source
 
+    get "/queue/:name" $ run (\name -> command name >>= \c -> atomically $ readTVar cmdQ >>= dumpTQueue . fromJust . M.lookup c ) json
+
     post "/enqueue/:name" $ dispatch cmdQ ownerMap chanSource
     post "/qplain/:name" $ dispatch cmdQ ownerMap chanText
-    get "/attach/:name" $ run attachRunner chanSource
+    get "/attach/:name" $ setHeader "Cache-Control" "no-cache" >> run attachRunner chanSource

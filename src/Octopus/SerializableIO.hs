@@ -1,12 +1,15 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables  #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables, DeriveGeneric, OverloadedStrings #-}
 module Octopus.SerializableIO where
 
 import Prelude hiding (sequence)
 import Data.Traversable (sequence)
+import GHC.Generics (Generic)
 
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
+import qualified Data.ByteString.Lazy.Char8 as LBS
+import Data.Monoid (mconcat)
 
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -19,10 +22,11 @@ import Control.Concurrent.STM.TVar (TVar, newTVarIO, newTVar, readTVar, writeTVa
 import Data.Conduit
 import Data.Conduit.TMChan (dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
 import Blaze.ByteString.Builder (Builder)
+import Data.Aeson
 
 import Octopus.Command
 
-class (Ord ident) => SerializableIO ident a where
+class (ToJSON ident, Ord ident) => SerializableIO ident a where
     runAction :: ident -> TMChan a -> IO ()
 
 chanIO :: IO a -> TMChan a -> IO ()
@@ -54,22 +58,29 @@ instance SerializableIO Command (Flush Builder) where
         writeTVar sourcePool $ M.insert command chan m
       runCommandChan chan command
 
-data Action = Action (IO ())
-type TActionQueue = TQueue Action
-type CommandQueueMap ident = TVar (M.Map ident TActionQueue)
+data Action = Action Value (IO ()) deriving (Generic)
 
-queueMap :: (Ord a) => STM (CommandQueueMap a)
+instance ToJSON Action where
+    toJSON (Action v _) = v
+
+instance Show Action where
+    show (Action v _) = "action: <" ++ (show v) ++ ">"
+
+type TActionQueue = TQueue Action
+type ActionQueueMap ident = TVar (M.Map ident TActionQueue)
+
+queueMap :: (Ord a) => STM (ActionQueueMap a)
 queueMap = newTVar M.empty
 
 -- | Client interface
-dispatchAction :: forall ident result. (SerializableIO ident result) => CommandQueueMap ident -> ident -> IO (TMChan result)
+dispatchAction :: forall ident result. (SerializableIO ident result) => ActionQueueMap ident -> ident -> IO (TMChan result)
 dispatchAction cmdQ ident = do
     qAction <- atomically $ actionQueue cmdQ ident
     queue <- qAction
     chan <- newTMChanIO :: IO (TMChan result)
     atomically $ do
-      writeTQueue queue $ Action $ runAction ident chan
-      writeTQueue queue $ Action teardown
+      writeTQueue queue $ Action (toJSON ident) $ runAction ident chan
+      writeTQueue queue $ Action (String "teardown") teardown
     return chan
 
 awaitResult :: TMChan a -> IO (Maybe a)
@@ -85,8 +96,8 @@ teardown :: IO ()
 teardown = threadDelay 5000000
 
 -- | Returns a worker queue in an action that starts a queue if necessary,
---   adds in to a CommandQueueMap
-actionQueue :: Ord ident => CommandQueueMap ident -> ident -> STM (IO TActionQueue)
+--   adds in to a ActionQueueMap
+actionQueue :: Ord ident => ActionQueueMap ident -> ident -> STM (IO TActionQueue)
 actionQueue cmdQ ident = do
     qmap <- readTVar cmdQ
     case M.lookup ident qmap of
@@ -100,11 +111,10 @@ worker :: TActionQueue -> IO ()
 worker queue = forkIO loop >> return ()
   where
     loop = do
-      Action action <- atomically $ readTQueue queue
+      Action info action <- atomically $ readTQueue queue
       t <- getPOSIXTime
-      putStrLn $ "running action " ++ (show (round t))
+      LBS.putStrLn $ mconcat ["running ", encode info, " ", LBS.pack $ show (round t)]
       action
       t' <- getPOSIXTime
-      putStrLn $ "done " ++ (show (round t'))
+      LBS.putStrLn $ mconcat [encode info, ":done ", LBS.pack $ show (round t')]
       loop
-
