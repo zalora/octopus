@@ -8,19 +8,22 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
+import System.IO.Unsafe (unsafePerformIO)
+
+import Data.Time.Clock.POSIX (getPOSIXTime)
+
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (STM, atomically)
 import Control.Concurrent.STM.TQueue (TQueue, writeTQueue, newTQueue, readTQueue)
 import Control.Concurrent.STM.TVar (TVar, newTVarIO, newTVar, readTVar, writeTVar)
-
-import System.IO.Unsafe (unsafePerformIO)
-
 import Data.Conduit
 import Data.Conduit.TMChan (dupTMChan, newTMChanIO, TMChan, writeTMChan, closeTMChan, readTMChan)
-import Octopus.Command
-import Blaze.ByteString.Builder
+import Blaze.ByteString.Builder (Builder)
 
-import Data.Time.Clock.POSIX (getPOSIXTime)
+import Octopus.Command
+
+class (Ord ident) => SerializableIO ident a where
+    runAction :: ident -> TMChan a -> IO ()
 
 chanIO :: IO a -> TMChan a -> IO ()
 chanIO action chan = do
@@ -28,9 +31,6 @@ chanIO action chan = do
     atomically $ do
       writeTMChan chan result
       closeTMChan chan
-
-class (Ord ident) => SerializableIO ident a where
-    runAction :: ident -> TMChan a -> IO ()
 
 instance SerializableIO Command T.Text where
     runAction = chanIO . runCommand
@@ -54,22 +54,22 @@ instance SerializableIO Command (Flush Builder) where
         writeTVar sourcePool $ M.insert command chan m
       runCommandChan chan command
 
-type TActionQueue = TQueue (IO ())
+data Action = Action (IO ())
+type TActionQueue = TQueue Action
 type CommandQueueMap ident = TVar (M.Map ident TActionQueue)
-data Owner = Owner { lastRun :: Int }
 
 queueMap :: (Ord a) => STM (CommandQueueMap a)
 queueMap = newTVar M.empty
 
 -- | Client interface
-dispatchAction :: forall ident result. (SerializableIO ident result) => Owner -> CommandQueueMap ident -> ident -> IO (TMChan result)
-dispatchAction _owner cmdQ ident = do
+dispatchAction :: forall ident result. (SerializableIO ident result) => CommandQueueMap ident -> ident -> IO (TMChan result)
+dispatchAction cmdQ ident = do
     qAction <- atomically $ actionQueue cmdQ ident
     queue <- qAction
     chan <- newTMChanIO :: IO (TMChan result)
     atomically $ do
-      writeTQueue queue $ runAction ident chan
-      writeTQueue queue teardown
+      writeTQueue queue $ Action $ runAction ident chan
+      writeTQueue queue $ Action teardown
     return chan
 
 awaitResult :: TMChan a -> IO (Maybe a)
@@ -100,7 +100,7 @@ worker :: TActionQueue -> IO ()
 worker queue = forkIO loop >> return ()
   where
     loop = do
-      action <- atomically $ readTQueue queue
+      Action action <- atomically $ readTQueue queue
       t <- getPOSIXTime
       putStrLn $ "running action " ++ (show (round t))
       action
@@ -108,5 +108,3 @@ worker queue = forkIO loop >> return ()
       putStrLn $ "done " ++ (show (round t'))
       loop
 
-noOwner :: Owner
-noOwner = undefined -- TODO

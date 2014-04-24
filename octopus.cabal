@@ -47,7 +47,7 @@ executable octopus
 
   ghc-options:         -O2
                        -rtsopts -threaded
-                       -Wall -Werror -fno-warn-type-defaults
+                       -Wall -Werror -fno-warn-type-defaults -fno-warn-unused-imports
   ghc-prof-options:    -prof -auto-all
 
 test-suite spec
