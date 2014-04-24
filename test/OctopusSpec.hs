@@ -14,6 +14,8 @@ import Octopus.HTTP
 main :: IO ()
 main = hspec spec
 
+-- sorry i was using this like a todo-list
+
 spec :: Spec
 spec = do
   describe "feature-checklist" $ do
