@@ -2,6 +2,7 @@
 module Octopus.HTTP where
 
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad ((<=<))
 
 import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
@@ -27,10 +28,10 @@ command :: JobName -> IO Command
 command name = jobs >>= return . fromJust . M.lookup name
 
 sourceRunner :: JobName -> IO ChunkSource
-sourceRunner name = command name >>= runCommandS
+sourceRunner = runCommandS <=< command
 
 attachRunner :: JobName -> IO ChunkChan
-attachRunner name = command name >>= (fmap fromJust . atomically . SIO.attach)
+attachRunner = fmap fromJust . atomically . SIO.attach <=< command
 
 runAccounted :: Parsable t => (t -> IO a) -> OwnerMap -> (a -> ActionM ()) -> ActionM ()
 runAccounted runner ownerMap liftOut = do
@@ -56,10 +57,11 @@ run runner liftOut = do
     liftOut output
 
 chanSource :: ChunkChan -> ActionM ()
-chanSource = (source =<<) . liftIO . return . sourceTMChan
+-- chanSource = (source =<<) . liftIO . return . sourceTMChan
+chanSource = source <=< return . sourceTMChan
 
 chanText :: TMChan T.Text -> ActionM ()
-chanText = (text =<<) . liftIO . fmap fromJust . SIO.awaitResult
+chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
 dispatch :: forall result. (SIO.SerializableIO Command result) => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
 dispatch cmdQ = runAccounted $ \name -> command name >>= SIO.dispatchAction cmdQ
@@ -76,7 +78,7 @@ scotty = do
     -- this call should be available only for admin users
     post "/concurrent/:name" $ run sourceRunner source
 
-    get "/queue/:name" $ run (\name -> command name >>= \c -> atomically $ readTVar cmdQ >>= dumpTQueue . fromJust . M.lookup c ) json
+    get "/queue/:name" $ run ((\comm -> atomically $ readTVar cmdQ >>= dumpTQueue . fromJust . M.lookup comm) <=< command) json
 
     post "/enqueue/:name" $ dispatch cmdQ ownerMap chanSource
     post "/qplain/:name" $ dispatch cmdQ ownerMap chanText
