@@ -13,7 +13,7 @@ executable octopus
   main-is:             main.hs
   hs-source-dirs:      src
 
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base >=4.6 && <4.8
                      , unix
                      , bytestring
                      , text
@@ -39,6 +39,7 @@ executable octopus
                      , blaze-builder
                      , stm-chans
                      , stm-conduit
+                     , ekg >= 0.4
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -60,7 +61,7 @@ test-suite spec
   ghc-options:         -Wall -Werror -fno-warn-type-defaults -fno-warn-unused-imports
   default-language:    Haskell2010
 
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base >=4.6 && <4.8
                      , unix
                      , bytestring
                      , text
@@ -86,6 +87,7 @@ test-suite spec
                      , blaze-builder
                      , stm-chans
                      , stm-conduit
+                     , ekg >= 0.4
 
                      , hspec >= 1.9
                      , QuickCheck
