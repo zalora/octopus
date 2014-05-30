@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 module Octopus.HTTP where
 
 import Control.Monad.IO.Class (liftIO)
@@ -63,7 +63,7 @@ chanSource = source <=< return . sourceTMChan
 chanText :: TMChan T.Text -> ActionM ()
 chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
-dispatch :: forall result. (SIO.SerializableIO Command result) => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
+dispatch :: SIO.SerializableIO Command result => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
 dispatch cmdQ = runAccounted $ \name -> command name >>= SIO.dispatchAction cmdQ
 
 scotty :: ScottyM ()

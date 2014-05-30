@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleInstances, ScopedTypeVariables, DeriveGeneric, OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, DeriveGeneric, OverloadedStrings #-}
 module Octopus.SerializableIO where
 
 import Prelude hiding (sequence)
@@ -73,7 +73,7 @@ queueMap :: (Ord a) => STM (ActionQueueMap a)
 queueMap = newTVar M.empty
 
 -- | Client interface
-dispatchAction :: forall ident result. (SerializableIO ident result) => ActionQueueMap ident -> ident -> IO (TMChan result)
+dispatchAction :: SerializableIO ident result => ActionQueueMap ident -> ident -> IO (TMChan result)
 dispatchAction cmdQ ident = do
     qAction <- atomically $ actionQueue cmdQ ident
     queue <- qAction
