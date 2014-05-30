@@ -42,8 +42,7 @@ executable octopus
                      , ekg >= 0.4
 
   default-language:    Haskell2010
-  ghc-options:         -O2
-                       -rtsopts -threaded
+  ghc-options:         -rtsopts -threaded
                        -Wall -Werror -fno-warn-type-defaults -fno-warn-unused-imports
   ghc-prof-options:    -prof -auto-all
 
