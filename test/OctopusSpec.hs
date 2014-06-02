@@ -8,8 +8,6 @@ import Data.Text ()
 
 import Octopus.Command
 import Octopus.Jobs
--- import Octopus.SerializableIO
-import Octopus.HTTP
 
 main :: IO ()
 main = hspec spec

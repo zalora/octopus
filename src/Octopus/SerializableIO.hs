@@ -113,8 +113,8 @@ worker queue = forkIO loop >> return ()
     loop = do
       Action info action <- atomically $ readTQueue queue
       t <- getPOSIXTime
-      LBS.putStrLn $ mconcat ["running ", encode info, " ", LBS.pack $ show (round t)]
+      LBS.putStrLn $ mconcat ["running ", encode info, " ", LBS.pack $ show (round t :: Integer)]
       action
       t' <- getPOSIXTime
-      LBS.putStrLn $ mconcat [encode info, ":done ", LBS.pack $ show (round t')]
+      LBS.putStrLn $ mconcat [encode info, ":done ", LBS.pack $ show (round t' :: Integer)]
       loop

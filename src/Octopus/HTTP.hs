@@ -4,7 +4,6 @@ module Octopus.HTTP where
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad ((<=<))
 
-import qualified Data.Text as ST
 import qualified Data.Text.Lazy as T
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
