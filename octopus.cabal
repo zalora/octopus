@@ -43,7 +43,7 @@ executable octopus
 
   default-language:    Haskell2010
   ghc-options:         -rtsopts -threaded
-                       -Wall -Werror
+                       -Wall
   ghc-prof-options:    -prof -auto-all
 
 test-suite spec
