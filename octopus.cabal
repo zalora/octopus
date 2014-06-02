@@ -32,6 +32,8 @@ executable octopus
                      , aeson
                      , yaml >= 0.8
                      , scotty
+                     , warp
+                     , wai
                      , wai-middleware-static
                      , wai-extra
                      , conduit
@@ -75,6 +77,8 @@ test-suite spec
                      , aeson
                      , yaml >= 0.8
                      , scotty
+                     , warp
+                     , wai
                      , wai-middleware-static
                      , wai-extra
                      , conduit
@@ -84,6 +88,7 @@ test-suite spec
                      , stm-conduit
                      , ekg >= 0.4
 
-                     , hspec >= 1.9
+                     , hspec2
+                     , hspec-wai
                      , QuickCheck
                      , quickcheck-instances

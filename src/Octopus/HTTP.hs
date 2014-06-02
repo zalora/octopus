@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
-module Octopus.HTTP where
+module Octopus.HTTP (app) where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad ((<=<))
@@ -9,7 +9,7 @@ import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.Monoid (mconcat)
 
-import Network.Wai.Middleware.RequestLogger
+import Network.Wai (Application)
 import Web.Scotty
 import Network.HTTP.Types.Status (unauthorized401)
 
@@ -65,10 +65,8 @@ chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 dispatch :: SIO.SerializableIO Command result => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
 dispatch cmdQ = runAccounted $ \name -> command name >>= SIO.dispatchAction cmdQ
 
-scotty :: ScottyM ()
-scotty = do
-    middleware logStdoutDev
-
+app :: IO Application
+app = scottyApp $ do
     cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
     ownerMap <- liftIO $ atomically $ emptyOwnerMap
 

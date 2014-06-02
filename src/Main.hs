@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import qualified Web.Scotty as S
-import Octopus.HTTP
-
+import Network.Wai.Handler.Warp (run)
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import qualified System.Remote.Monitoring as Mon
+
+import Octopus.HTTP
 
 main :: IO ()
 main = do
     _ <- Mon.forkServer "localhost" 8001
-    S.scotty 8000 scotty
+    app >>= run 8000 . logStdoutDev
