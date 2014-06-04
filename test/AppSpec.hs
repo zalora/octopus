@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Octopus.HTTPSpec (main, spec) where
+module AppSpec (main, spec) where
 
 import           Test.Hspec
 import           Test.Hspec.Wai
 
-import           Octopus.HTTP
+import           App
 
 main :: IO ()
 main = hspec spec

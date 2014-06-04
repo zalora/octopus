@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
-module Octopus.HTTP (app) where
+module App (app) where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad ((<=<))
