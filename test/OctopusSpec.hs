@@ -4,10 +4,6 @@ module OctopusSpec (main, spec) where
 import Test.Hspec
 import Test.QuickCheck.Instances ()
 
-import Data.Text ()
-
-import Octopus.Command
-
 main :: IO ()
 main = hspec spec
 
@@ -27,8 +23,3 @@ spec = do
 
     it "throttles users" $ do
       pending
-
-
-  describe "commands" $ do
-    it "runs a command on localhost" $ do
-      runCommand (Command (Host "localhost") "uname") >>= (`shouldSatisfy` (`elem` ["Darwin\n", "Linux\n"]))
