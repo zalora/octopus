@@ -2,7 +2,7 @@
 module App (app) where
 
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad ((<=<))
+import Control.Monad
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Map as M
@@ -63,7 +63,7 @@ chanText :: TMChan T.Text -> ActionM ()
 chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
 dispatch :: SIO.SerializableIO Command result => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
-dispatch cmdQ = runAccounted $ \name -> command name >>= SIO.dispatchAction cmdQ
+dispatch cmdQ = runAccounted $ command >=> SIO.dispatchAction cmdQ
 
 app :: IO Application
 app = scottyApp $ do
