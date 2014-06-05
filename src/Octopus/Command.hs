@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
-
 module Octopus.Command (
   Command(..)
-, Host(..)
+, Host
 , runCommand
 , ChunkChan
 , ChunkSource
@@ -11,6 +10,7 @@ module Octopus.Command (
 ) where
 
 import Prelude hiding (sequence, mapM)
+import Data.String
 
 import GHC.Generics (Generic)
 
@@ -38,6 +38,9 @@ import Control.Concurrent.STM.TMChan (TMChan, closeTMChan, writeTMChan)
 data Host = Host T.Text
           deriving (Show, Ord, Eq, Generic)
 
+instance IsString Host where
+    fromString = Host . fromString
+
 instance FromJSON Host where
     parseJSON v@(String _) = Host <$> parseJSON v
     parseJSON _ = mzero
@@ -50,7 +53,7 @@ data Command = Command { commandHost :: Host
 
 instance FromJSON Command where
     parseJSON (Object v) = Command <$>
-                           v .:? "host" .!= Host "localhost" <*>
+                           v .:? "host" .!= "localhost" <*>
                            v .: "command"
     parseJSON _ = mzero
 

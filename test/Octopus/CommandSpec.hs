@@ -12,4 +12,4 @@ spec :: Spec
 spec = do
   describe "runCommand" $ do
     it "runs a command on localhost" $ do
-      runCommand (Command (Host "localhost") "uname") >>= (`shouldSatisfy` (`elem` ["Darwin\n", "Linux\n"]))
+      runCommand (Command "localhost" "uname") >>= (`shouldSatisfy` (`elem` ["Darwin\n", "Linux\n"]))
