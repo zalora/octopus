@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Octopus.Jobs where
+module Octopus.Jobs (JobName, jobs) where
 
 import qualified Data.Map as M
 import qualified Data.Text as T

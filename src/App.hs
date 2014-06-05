@@ -15,11 +15,11 @@ import Network.HTTP.Types.Status (unauthorized401)
 
 import Control.Concurrent.STM (atomically, STM, readTVar)
 
-import Octopus.Command (Command, runCommandS, ChunkSource, ChunkChan)
-import Octopus.Jobs (jobs, JobName)
+import Octopus.Command
+import Octopus.Jobs
 import qualified Octopus.SerializableIO as SIO
-import Octopus.Owner (canEnqueue, bumpOwner, OwnerMap, emptyOwnerMap, lookupCreateOwner)
-import Octopus.TQueue (dumpTQueue)
+import Octopus.Owner
+import Octopus.TQueue
 
 import Data.Conduit.TMChan (sourceTMChan, TMChan)
 

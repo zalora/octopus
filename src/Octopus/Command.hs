@@ -1,6 +1,14 @@
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
-module Octopus.Command where
+module Octopus.Command (
+  Command(..)
+, Host(..)
+, runCommand
+, ChunkChan
+, ChunkSource
+, runCommandChan
+, runCommandS
+) where
 
 import Prelude hiding (sequence, mapM)
 

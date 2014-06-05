@@ -7,7 +7,6 @@ import Test.QuickCheck.Instances ()
 import Data.Text ()
 
 import Octopus.Command
-import Octopus.Jobs
 
 main :: IO ()
 main = hspec spec
@@ -17,9 +16,6 @@ main = hspec spec
 spec :: Spec
 spec = do
   describe "feature-checklist" $ do
-    it "reads a job list file" $ do
-      jobsFile >>= (`shouldSatisfy` not.null)
-
     it "spawns a http server" $ do
       True
 
