@@ -92,3 +92,6 @@ test-suite spec
                      , hspec-wai
                      , QuickCheck
                      , quickcheck-instances
+                     , template-haskell
+                     , aeson-qq
+                     , wai-test

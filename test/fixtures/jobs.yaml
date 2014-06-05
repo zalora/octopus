@@ -1,0 +1,7 @@
+processes:
+  host: localhost
+  command: ps -ef
+
+messages:
+  host: localhost
+  command: tail -10 /var/log/system.log

@@ -1,6 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
 module AppSpec (main, spec) where
 
+import           Helper
 import           Test.Hspec
 import           Test.Hspec.Wai
 
@@ -10,7 +11,18 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = before (app "octopus.yaml") $ do
+spec = before (app "test/fixtures/jobs.yaml") $ do
   describe "GET /" $ do
-    it "responds with 200" $ do
-      get "/" `shouldRespondWith` 200
+    it "lists jobs" $ do
+      get "/" `shouldRespondWithJSON` [json|
+        {
+          processes: {
+            commandText: "ps -ef",
+            commandHost: "localhost"
+          },
+          messages: {
+            commandText: "tail -10 /var/log/system.log",
+            commandHost: "localhost"
+          }
+        }
+      |]
