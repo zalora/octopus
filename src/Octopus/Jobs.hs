@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Octopus.Jobs (JobName, jobs) where
+module Octopus.Jobs (JobsSpec, JobName, readJobs) where
 
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -11,8 +11,5 @@ import Octopus.Command (Command(..))
 type JobName = T.Text
 type JobsSpec = M.Map JobName Command
 
-jobsFile :: IO FilePath
-jobsFile = return "octopus.yaml"
-
-jobs :: IO JobsSpec
-jobs = jobsFile >>= fmap fromJust . decodeFile
+readJobs :: FilePath -> IO JobsSpec
+readJobs = fmap fromJust . decodeFile

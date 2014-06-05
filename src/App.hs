@@ -23,15 +23,6 @@ import Octopus.TQueue
 
 import Data.Conduit.TMChan (sourceTMChan, TMChan)
 
-command :: JobName -> IO Command
-command name = jobs >>= return . fromJust . M.lookup name
-
-sourceRunner :: JobName -> IO ChunkSource
-sourceRunner = runCommandS <=< command
-
-attachRunner :: JobName -> IO ChunkChan
-attachRunner = fmap fromJust . atomically . SIO.attach <=< command
-
 runAccounted :: Parsable t => (t -> IO a) -> OwnerMap -> (a -> ActionM ()) -> ActionM ()
 runAccounted runner ownerMap liftOut = do
     name <- param "name"
@@ -62,11 +53,8 @@ chanSource = source <=< return . sourceTMChan
 chanText :: TMChan T.Text -> ActionM ()
 chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
-dispatch :: SIO.SerializableIO Command result => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
-dispatch cmdQ = runAccounted $ command >=> SIO.dispatchAction cmdQ
-
-app :: IO Application
-app = scottyApp $ do
+app :: FilePath -> IO Application
+app jobFile = scottyApp $ do
     cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
     ownerMap <- liftIO $ atomically $ emptyOwnerMap
 
@@ -80,3 +68,18 @@ app = scottyApp $ do
     post "/enqueue/:name" $ dispatch cmdQ ownerMap chanSource
     post "/qplain/:name" $ dispatch cmdQ ownerMap chanText
     get "/attach/:name" $ setHeader "Cache-Control" "no-cache" >> run attachRunner chanSource
+  where
+    jobs :: IO JobsSpec
+    jobs = readJobs jobFile
+
+    command :: JobName -> IO Command
+    command name = jobs >>= return . fromJust . M.lookup name
+
+    sourceRunner :: JobName -> IO ChunkSource
+    sourceRunner = runCommandS <=< command
+
+    attachRunner :: JobName -> IO ChunkChan
+    attachRunner = fmap fromJust . atomically . SIO.attach <=< command
+
+    dispatch :: SIO.SerializableIO Command result => SIO.ActionQueueMap Command -> OwnerMap -> (TMChan result -> ActionM ()) -> ActionM ()
+    dispatch cmdQ = runAccounted $ command >=> SIO.dispatchAction cmdQ

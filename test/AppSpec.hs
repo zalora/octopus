@@ -10,7 +10,7 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = before app $ do
+spec = before (app "octopus.yaml") $ do
   describe "GET /" $ do
     it "responds with 200" $ do
       get "/" `shouldRespondWith` 200
