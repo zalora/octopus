@@ -2,7 +2,6 @@
 module OctopusSpec (main, spec) where
 
 import Test.Hspec
-import Test.QuickCheck.Instances ()
 
 main :: IO ()
 main = hspec spec

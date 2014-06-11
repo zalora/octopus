@@ -31,7 +31,7 @@ executable octopus
                      , HTTP >= 4000.2
                      , aeson
                      , yaml >= 0.8
-                     , scotty
+                     , scotty >= 0.8
                      , warp
                      , wai
                      , wai-middleware-static
@@ -41,7 +41,6 @@ executable octopus
                      , blaze-builder
                      , stm-chans
                      , stm-conduit
-                     , ekg >= 0.4
 
   default-language:    Haskell2010
   ghc-options:         -rtsopts -threaded
@@ -55,7 +54,7 @@ test-suite spec
                      , src
   main-is:             Spec.hs
 
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall
   default-language:    Haskell2010
 
   build-depends:       base >=4.6 && <4.8
@@ -73,9 +72,9 @@ test-suite spec
                      , process
                      , time
                      , http-types
-                     , HTTP >= 4000.2
+                     , HTTP
                      , aeson
-                     , yaml >= 0.8
+                     , yaml
                      , scotty
                      , warp
                      , wai
@@ -86,12 +85,9 @@ test-suite spec
                      , blaze-builder
                      , stm-chans
                      , stm-conduit
-                     , ekg >= 0.4
 
                      , hspec2
                      , hspec-wai
                      , QuickCheck
-                     , quickcheck-instances
                      , template-haskell
                      , aeson-qq
-                     , wai-test
