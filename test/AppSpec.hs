@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
 module AppSpec (main, spec) where
 
-import           Helper
 import           Test.Hspec
 import           Test.Hspec.Wai
+import           Test.Hspec.Wai.JSON
 
 import           App
 
@@ -11,10 +11,10 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = before (app "test/fixtures/jobs.yaml") $ do
+spec = with (app "test/fixtures/jobs.yaml") $ do
   describe "GET /" $ do
     it "lists jobs" $ do
-      get "/" `shouldRespondWithJSON` [json|
+      get "/" `shouldRespondWith` [json|
         {
           processes: {
             commandText: "ps -ef",

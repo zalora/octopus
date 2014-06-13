@@ -87,7 +87,4 @@ test-suite spec
                      , stm-conduit
 
                      , hspec2
-                     , hspec-wai
-                     , QuickCheck
-                     , template-haskell
-                     , aeson-qq
+                     , hspec-wai >= 0.2
