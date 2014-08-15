@@ -10,6 +10,10 @@ loop:
   host: localhost
   command: for x in `seq 50`; do echo $x; sleep .1; done
 
+loop:
+  host: localhost
+  command: for x in `seq 100`; do echo $x $PATH; sleep .1; done
+
 waitnrun:
   host: localhost
   command: echo $$ sleeping; sleep 5; uname; sleep 1; echo $$ done
