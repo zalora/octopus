@@ -112,6 +112,7 @@ cmd proc args = CreateProcess { cmdspec = RawCommand proc $ T.unpack <$> args
                               , std_err = CreatePipe
                               , close_fds = True
                               , create_group = True
+                              , delegate_ctlc = False
                               }
 
 commandProcess :: Command -> CreateProcess
