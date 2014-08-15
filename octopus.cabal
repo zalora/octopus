@@ -36,6 +36,7 @@ executable octopus
                      , wai
                      , wai-middleware-static
                      , wai-extra
+                     , wai-cors
                      , conduit
                      , conduit-combinators
                      , blaze-builder

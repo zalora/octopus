@@ -10,6 +10,7 @@ import Data.Maybe (fromJust)
 import Data.Monoid (mconcat)
 
 import Network.Wai (Application)
+import Network.Wai.Middleware.Cors
 import Web.Scotty
 import Network.HTTP.Types.Status (unauthorized401)
 
@@ -55,6 +56,8 @@ chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
 app :: FilePath -> IO Application
 app jobFile = scottyApp $ do
+    middleware simpleCors
+
     cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
     ownerMap <- liftIO $ atomically $ emptyOwnerMap
 
@@ -68,6 +71,7 @@ app jobFile = scottyApp $ do
     post "/enqueue/:name" $ dispatch cmdQ ownerMap chanSource
     post "/qplain/:name" $ dispatch cmdQ ownerMap chanText
     get "/attach/:name" $ setHeader "Cache-Control" "no-cache" >> run attachRunner chanSource
+
   where
     jobs :: IO JobsSpec
     jobs = readJobs jobFile
