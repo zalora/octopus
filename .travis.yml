@@ -1,5 +1,5 @@
 sudo: false
-language: haskell
+language: c
 env:
 - GHC_VERSION=7.10.2
 
