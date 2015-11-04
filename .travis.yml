@@ -3,12 +3,10 @@ language: c
 env:
 - GHC_VERSION=7.10.2
 
-before_install:
+script:
 - mkdir -p ~/.local/bin
 - export PATH=~/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
-script:
 - stack --no-terminal test
 
 cache:
