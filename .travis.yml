@@ -18,7 +18,7 @@ addons:
     packages:
     - libgmp3-dev
     - binutils
-    - ghc-$GHC_VERSION
+    - ghc-7.10.2
 
     sources:
     - hvr-ghc
