@@ -5,7 +5,7 @@ env:
 
 script:
 - mkdir -p ~/.local/bin
-- export PATH=~/.local/bin:$PATH
+- export PATH=~/.local/bin:/opt/ghc/$GHC_VERSION/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 - stack --no-terminal test
 
@@ -18,7 +18,7 @@ addons:
     packages:
     - libgmp3-dev
     - binutils
-    - ghc-7.10.2
+    - ghc-$GHC_VERSION
 
     sources:
     - hvr-ghc
