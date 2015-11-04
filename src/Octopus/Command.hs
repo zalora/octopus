@@ -18,7 +18,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.ByteString as BS
 
-import Control.Applicative
 import Control.Monad (ap, join, mzero)
 import Control.Monad.Trans
 
@@ -126,7 +125,7 @@ runCommandS :: Command -> IO ChunkSource
 runCommandS = sourceProc . commandProcess
 
 runCommandChan :: ChunkChan -> Command -> IO ()
-runCommandChan chan = 
+runCommandChan chan =
     let consume handle = do
                           x <- BS.hGetSome handle 64
                           if BS.null x

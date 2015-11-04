@@ -1,28 +1,30 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings, FlexibleContexts #-}
 module App (app) where
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad
+import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad
 
-import qualified Data.Text.Lazy as T
+import           Data.ByteString.Builder (Builder)
 import qualified Data.Map as M
-import Data.Maybe (fromJust)
-import Data.Monoid (mconcat)
+import           Data.Maybe (fromJust)
+import qualified Data.Text.Lazy as T
+import qualified Data.Conduit.List as CL
+import           Data.Conduit (Source, Flush(..), ($$))
 
-import Network.Wai (Application)
-import Network.Wai.Middleware.Cors
-import Web.Scotty
-import Network.HTTP.Types.Status (unauthorized401)
+import           Network.Wai (Application)
+import           Network.Wai.Middleware.Cors
+import           Web.Scotty
+import           Network.HTTP.Types.Status (unauthorized401)
 
-import Control.Concurrent.STM (atomically, STM, readTVar)
+import           Control.Concurrent.STM (atomically, STM, readTVar)
 
-import Octopus.Command
-import Octopus.Jobs
+import           Octopus.Command
+import           Octopus.Jobs
 import qualified Octopus.SerializableIO as SIO
-import Octopus.Owner
-import Octopus.TQueue
+import           Octopus.Owner
+import           Octopus.TQueue
 
-import Data.Conduit.TMChan (sourceTMChan, TMChan)
+import           Data.Conduit.TMChan (sourceTMChan, TMChan)
 
 runAccounted :: Parsable t => (t -> IO a) -> OwnerMap -> (a -> ActionM ()) -> ActionM ()
 runAccounted runner ownerMap liftOut = do
@@ -47,19 +49,24 @@ run runner liftOut = do
     output <- liftIO $ runner name
     liftOut output
 
+source :: Source IO (Flush Builder) -> ActionM ()
+source src = stream $ \send flush ->
+    src $$ CL.mapM_ (\case Chunk b -> send b
+                           Flush -> flush)
+
 chanSource :: ChunkChan -> ActionM ()
--- chanSource = (source =<<) . liftIO . return . sourceTMChan
 chanSource = source <=< return . sourceTMChan
 
 chanText :: TMChan T.Text -> ActionM ()
 chanText = text <=< liftIO . fmap fromJust . SIO.awaitResult
 
 app :: FilePath -> IO Application
-app jobFile = scottyApp $ do
-    middleware simpleCors
+app jobFile = do
+  cmdQ <- atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
+  ownerMap <- atomically $ emptyOwnerMap
 
-    cmdQ <- liftIO $ atomically $ (SIO.queueMap :: STM (SIO.ActionQueueMap Command))
-    ownerMap <- liftIO $ atomically $ emptyOwnerMap
+  scottyApp $ do
+    middleware simpleCors
 
     get "/" $ json =<< liftIO jobs
 

@@ -9,7 +9,6 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.ByteString.Lazy.Char8 as LBS
-import Data.Monoid (mconcat)
 
 import System.IO.Unsafe (unsafePerformIO)
 
